@@ -1,0 +1,311 @@
+/*
+ * components.css
+ * 크레아타 지갑 챌린지 미니앱을 위한 컴포넌트 스타일
+ */
+
+/* 버튼 스타일 */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+  padding: 0.75rem 1.5rem;
+  border-radius: var(--border-radius-sm);
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-neon-primary);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #2a75ee;
+  transform: translateY(-1px);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.btn-secondary {
+  background-color: transparent;
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-primary);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: rgba(58, 134, 255, 0.1);
+}
+
+.btn-accent {
+  background-color: var(--color-accent);
+  color: #000000;
+  box-shadow: var(--shadow-neon-accent);
+}
+
+.btn-accent:hover:not(:disabled) {
+  background-color: #eaad00;
+  transform: translateY(-1px);
+}
+
+.btn-accent:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+/* 카드 스타일 */
+.card {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-md);
+  transition: all var(--transition-normal);
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.mission-card {
+  composes: card;
+}
+
+.mission-card-completed {
+  background: linear-gradient(45deg, rgba(58, 134, 255, 0.1), rgba(131, 56, 236, 0.1));
+  border: 1px solid rgba(58, 134, 255, 0.3);
+}
+
+.nft-card {
+  background-color: var(--color-primary-dark);
+  border: 2px solid var(--color-accent);
+  border-radius: var(--border-radius-md);
+  padding: var(--spacing-sm);
+  box-shadow: var(--shadow-neon-accent);
+}
+
+/* 뱃지 스타일 */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.5rem;
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  border-radius: var(--border-radius-full);
+}
+
+.badge-primary {
+  background-color: rgba(58, 134, 255, 0.2);
+  color: var(--color-primary);
+}
+
+.badge-secondary {
+  background-color: rgba(131, 56, 236, 0.2);
+  color: var(--color-secondary);
+}
+
+.badge-accent {
+  background-color: rgba(255, 190, 11, 0.2);
+  color: var(--color-accent);
+}
+
+.badge-success {
+  background-color: rgba(56, 176, 0, 0.2);
+  color: var(--color-success);
+}
+
+.badge-warning {
+  background-color: rgba(255, 0, 110, 0.2);
+  color: var(--color-warning);
+}
+
+/* 입력 필드 스타일 */
+.input {
+  background-color: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--border-radius-sm);
+  color: var(--color-text-primary);
+  padding: 0.75rem 1rem;
+  width: 100%;
+  transition: all var(--transition-fast);
+}
+
+.input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(58, 134, 255, 0.25);
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input::placeholder {
+  color: var(--color-text-disabled);
+}
+
+/* 헤더 스타일 */
+.header {
+  background: linear-gradient(to bottom, rgba(58, 134, 255, 0.2), transparent);
+  padding: var(--spacing-md) var(--spacing-md);
+  margin-bottom: var(--spacing-lg);
+}
+
+/* 푸터 내비게이션 */
+.footer-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  padding: var(--spacing-sm) var(--spacing-md);
+  display: flex;
+  justify-content: space-around;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: var(--z-index-fixed);
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-size: var(--font-size-xs);
+}
+
+.nav-item.active {
+  color: var(--color-primary);
+}
+
+.nav-icon {
+  font-size: 1.5rem;
+  margin-bottom: 0.25rem;
+}
+
+/* 로딩 스피너 */
+.spinner {
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  border-top: 4px solid var(--color-primary);
+  width: 40px;
+  height: 40px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* 모달 스타일 */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--z-index-modal-backdrop);
+}
+
+.modal {
+  background-color: #1e1e1e;
+  border-radius: var(--border-radius-lg);
+  padding: var(--spacing-lg);
+  width: 90%;
+  max-width: 500px;
+  max-height: 90vh;
+  overflow-y: auto;
+  z-index: var(--z-index-modal);
+  position: relative;
+}
+
+/* 유틸리티 클래스 */
+.text-gradient {
+  background: linear-gradient(to right, var(--color-primary), var(--color-secondary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-shadow {
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+}
+
+.neon-shadow-primary {
+  box-shadow: var(--shadow-neon-primary);
+}
+
+.neon-shadow-accent {
+  box-shadow: var(--shadow-neon-accent);
+}
+
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.animate-shine {
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(255, 255, 255, 0.15),
+    transparent
+  );
+  background-size: 200% auto;
+  animation: shine 1.5s linear infinite;
+}
+
+.animate-pop {
+  animation: pop 0.3s ease-out;
+}
+
+/* 이미지 플레이스홀더 */
+.image-placeholder {
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: var(--border-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-disabled);
+}
+
+/* 반응형 그리드 */
+.grid {
+  display: grid;
+  gap: var(--spacing-md);
+}
+
+.grid-cols-1 {
+  grid-template-columns: repeat(1, 1fr);
+}
+
+@media (min-width: 640px) {
+  .grid-cols-sm-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .grid-cols-md-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid-cols-lg-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

@@ -1,0 +1,55 @@
+/* 테마 및 컴포넌트 스타일 임포트 */
+@import './styles/theme.css';
+@import './styles/components.css';
+
+/* Tailwind CSS 지시문 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  font-family: var(--font-family-base);
+  background-color: var(--color-primary-dark);
+  color: var(--color-text-primary);
+  margin: 0;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3, .highlighted-text {
+  font-family: var(--font-family-display);
+}
+
+/* 커스텀 컴포넌트 스타일 - Tailwind 사용 */
+@layer components {
+  /* Tailwind에서 기본 버튼 스타일 재정의 */
+  .btn-primary {
+    @apply bg-blue-600 text-white py-3 px-6 rounded-md shadow-lg hover:bg-blue-700
+      transition-all duration-300 font-medium flex items-center justify-center;
+  }
+
+  .btn-secondary {
+    @apply bg-transparent border border-blue-600 text-white py-3 px-6 rounded-md
+      hover:bg-blue-600/10 transition-all duration-300 font-medium flex items-center justify-center;
+  }
+
+  .btn-accent {
+    @apply bg-yellow-500 text-black py-3 px-6 rounded-md shadow-lg hover:bg-yellow-600
+      transition-all duration-300 font-medium flex items-center justify-center;
+  }
+}
+
+/* Tailwind CSS 유틸리티 확장 */
+@layer utilities {
+  .text-shadow {
+    text-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
+  }
+
+  .neon-shadow-primary {
+    box-shadow: 0 0 8px rgba(58, 134, 255, 0.5);
+  }
+
+  .neon-shadow-accent {
+    box-shadow: 0 0 8px rgba(255, 190, 11, 0.5);
+  }
+}

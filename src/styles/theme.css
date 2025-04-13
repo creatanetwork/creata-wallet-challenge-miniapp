@@ -1,0 +1,112 @@
+/*
+ * theme.css
+ * 크레아타 지갑 챌린지 미니앱을 위한 전역 테마 변수
+ */
+
+:root {
+  /* 색상 변수 */
+  --color-primary-dark: #121212;
+  --color-primary: #3a86ff;
+  --color-secondary: #8338ec;
+  --color-accent: #ffbe0b;
+  --color-success: #38b000;
+  --color-warning: #ff006e;
+
+  /* 텍스트 색상 */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #a0a0a0;
+  --color-text-disabled: #666666;
+
+  /* 폰트 */
+  --font-family-base: 'Montserrat', sans-serif;
+  --font-family-display: 'Orbitron', sans-serif;
+
+  /* 폰트 크기 */
+  --font-size-xs: 0.75rem;   /* 12px */
+  --font-size-sm: 0.875rem;  /* 14px */
+  --font-size-base: 1rem;    /* 16px */
+  --font-size-lg: 1.125rem;  /* 18px */
+  --font-size-xl: 1.25rem;   /* 20px */
+  --font-size-2xl: 1.5rem;   /* 24px */
+  --font-size-3xl: 1.875rem; /* 30px */
+
+  /* 간격 */
+  --spacing-xs: 0.25rem;  /* 4px */
+  --spacing-sm: 0.5rem;   /* 8px */
+  --spacing-md: 1rem;     /* 16px */
+  --spacing-lg: 1.5rem;   /* 24px */
+  --spacing-xl: 2rem;     /* 32px */
+
+  /* 테두리 반경 */
+  --border-radius-sm: 0.25rem;  /* 4px */
+  --border-radius-md: 0.5rem;   /* 8px */
+  --border-radius-lg: 0.75rem;  /* 12px */
+  --border-radius-xl: 1rem;     /* 16px */
+  --border-radius-full: 9999px; /* 완전한 원형 */
+
+  /* 그림자 */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-neon-primary: 0 0 8px rgba(58, 134, 255, 0.5);
+  --shadow-neon-accent: 0 0 8px rgba(255, 190, 11, 0.5);
+
+  /* 트랜지션 */
+  --transition-fast: 150ms ease-in-out;
+  --transition-normal: 300ms ease-in-out;
+  --transition-slow: 500ms ease-in-out;
+
+  /* z-index 계층 */
+  --z-index-dropdown: 1000;
+  --z-index-sticky: 1020;
+  --z-index-fixed: 1030;
+  --z-index-modal-backdrop: 1040;
+  --z-index-modal: 1050;
+  --z-index-popover: 1060;
+  --z-index-tooltip: 1070;
+}
+
+/* 미디어 쿼리를 위한 반응형 중단점 */
+@media (min-width: 640px) {
+  :root {
+    --font-size-base: 1.125rem; /* 태블릿에서 살짝 큰 폰트 */
+  }
+}
+
+/* 다크 모드 변수 (기본 다크 테마이므로 추가적인 변경이 필요한 경우) */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 다크 모드에서는 이미 다크 테마를 사용하므로 추가 설정 불필요 */
+  }
+}
+
+/* 애니메이션 키프레임 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes shine {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.95);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
