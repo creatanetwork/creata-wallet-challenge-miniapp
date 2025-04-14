@@ -39,11 +39,11 @@ const MissionVerification = ({ mission, userInfo, isCompleted, onVerificationSuc
         return (
           <div>
             <p className="text-gray-300 mb-4">지정된 주소로 0.01 CTA를 전송하세요:</p>
-
             <div className="bg-gray-800 p-3 rounded-lg mb-4 break-all">
-              <p className="text-gray-300 text-sm font-mono">0x1234567890AbCdEf1234567890AbCdEf12345678</p>
+              <p className="text-gray-300 text-sm font-mono">
+                {mission.requirements.params?.receiver || '0x1234567890AbCdEf1234567890AbCdEf12345678'}
+              </p>
             </div>
-
             <div className="mb-4">
               <label className="block text-gray-400 text-sm mb-1">트랜잭션 해시 입력</label>
               <input
@@ -54,7 +54,6 @@ const MissionVerification = ({ mission, userInfo, isCompleted, onVerificationSuc
                 onChange={(e) => setVerificationData({...verificationData, txHash: e.target.value})}
               />
             </div>
-
             <button
               className="btn-primary w-full"
               onClick={handleVerifyTransaction}
@@ -69,26 +68,24 @@ const MissionVerification = ({ mission, userInfo, isCompleted, onVerificationSuc
         return (
           <div>
             <p className="text-gray-300 mb-4">아래 스마트 컨트랙트를 배포하세요:</p>
-
             <div className="bg-gray-800 p-3 rounded-lg mb-4 overflow-x-auto">
               <pre className="text-gray-300 text-sm">
-{`// SPDX-License-Identifier: MIT
+                {`// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 contract SimpleStorage {
     uint private value;
-
+    
     function set(uint x) public {
         value = x;
     }
-
+    
     function get() public view returns (uint) {
         return value;
     }
 }`}
               </pre>
             </div>
-
             <div className="mb-4">
               <label className="block text-gray-400 text-sm mb-1">배포한 컨트랙트 주소 입력</label>
               <input
@@ -99,7 +96,6 @@ contract SimpleStorage {
                 onChange={(e) => setVerificationData({...verificationData, contractAddress: e.target.value})}
               />
             </div>
-
             <button
               className="btn-primary w-full"
               onClick={handleVerifySmartContract}
@@ -114,13 +110,11 @@ contract SimpleStorage {
         return (
           <div>
             <p className="text-gray-300 mb-4">LunarLink를 사용하여 크로스체인 전송을 완료하세요:</p>
-
             <ol className="list-decimal list-inside text-gray-300 mb-4 space-y-2">
               <li>제니스 체인에서 카테나 체인으로 자산을 전송하세요</li>
               <li>최소 0.001 CTA 이상의 금액을 전송해야 합니다</li>
               <li>전송 후 이 페이지로 돌아오세요</li>
             </ol>
-
             <div className="flex space-x-4">
               <button
                 className="btn-secondary flex-1"
@@ -128,7 +122,6 @@ contract SimpleStorage {
               >
                 LunarLink 열기
               </button>
-
               <button
                 className="btn-primary flex-1"
                 onClick={handleVerifyCrossChain}
@@ -144,13 +137,11 @@ contract SimpleStorage {
         return (
           <div>
             <p className="text-gray-300 mb-4">크레아타 지갑에서 스테이킹을 완료하세요:</p>
-
             <ol className="list-decimal list-inside text-gray-300 mb-4 space-y-2">
               <li>최소 10 CTA를 스테이킹하세요</li>
               <li>최소 1시간 동안 스테이킹 상태를 유지하세요</li>
               <li>스테이킹 후 이 페이지로 돌아와 확인하세요</li>
             </ol>
-
             <div className="mb-4">
               <label className="block text-gray-400 text-sm mb-1">스테이킹한 금액 입력</label>
               <input
@@ -162,7 +153,6 @@ contract SimpleStorage {
                 onChange={(e) => setVerificationData({...verificationData, amount: e.target.value})}
               />
             </div>
-
             <button
               className="btn-primary w-full"
               onClick={handleVerifyStaking}
@@ -177,16 +167,14 @@ contract SimpleStorage {
         return (
           <div>
             <p className="text-gray-300 mb-4">트랜잭션 로그를 분석하여 패턴 코드를 찾으세요:</p>
-
             <div className="bg-gray-800 p-3 rounded-lg mb-4">
               <p className="text-gray-300 text-sm">
                 KYT 시스템에서 다음 주소의 트랜잭션을 분석하세요:
               </p>
               <p className="text-primary font-mono text-sm mt-1 break-all">
-                0x9876543210FeDcBa9876543210FeDcBa98765432
+                {mission.requirements.params?.targetAddress || '0x9876543210FeDcBa9876543210FeDcBa98765432'}
               </p>
             </div>
-
             <div className="mb-4">
               <label className="block text-gray-400 text-sm mb-1">발견한 패턴 코드 입력</label>
               <input
@@ -197,7 +185,6 @@ contract SimpleStorage {
                 onChange={(e) => setVerificationData({...verificationData, patternCode: e.target.value})}
               />
             </div>
-
             <button
               className="btn-primary w-full"
               onClick={handleVerifyKyt}
@@ -212,7 +199,6 @@ contract SimpleStorage {
         return (
           <div>
             <p className="text-gray-300 mb-4">크레아타체인에 대한 퀴즈를 풀어보세요:</p>
-
             <div className="space-y-4 mb-6">
               <div>
                 <p className="text-white font-semibold mb-2">1. 크레아타체인의 두 체인은 무엇인가요?</p>
@@ -232,10 +218,8 @@ contract SimpleStorage {
                   ))}
                 </div>
               </div>
-
               {/* 더 많은 퀴즈 문제 추가 가능 */}
             </div>
-
             <button
               className="btn-primary w-full"
               onClick={handleVerifyQuiz}
@@ -280,7 +264,6 @@ contract SimpleStorage {
   // 트랜잭션 검증
   const handleVerifyTransaction = async () => {
     hapticFeedback('medium');
-
     if (!verificationData.txHash) {
       showAlert('트랜잭션 해시를 입력해주세요.');
       return;
@@ -310,7 +293,6 @@ contract SimpleStorage {
   // 스마트 컨트랙트 검증
   const handleVerifySmartContract = async () => {
     hapticFeedback('medium');
-
     if (!verificationData.contractAddress) {
       showAlert('컨트랙트 주소를 입력해주세요.');
       return;
@@ -340,7 +322,9 @@ contract SimpleStorage {
   // LunarLink 열기
   const handleOpenLunarLink = () => {
     hapticFeedback('medium');
-    window.location.href = 'https://lunarlink.creatachain.com/';
+    // Redirect URL 생성 (현재 페이지로 돌아오기 위함)
+    const redirectUrl = encodeURIComponent(window.location.href);
+    window.location.href = `https://lunarlink.creatachain.com/?callback=${redirectUrl}`;
   };
 
   // 크로스체인 전송 검증
@@ -368,7 +352,6 @@ contract SimpleStorage {
   // 스테이킹 검증
   const handleVerifyStaking = async () => {
     hapticFeedback('medium');
-
     if (!verificationData.amount || parseFloat(verificationData.amount) < 10) {
       showAlert('최소 10 CTA 이상 스테이킹해야 합니다.');
       return;
@@ -398,7 +381,6 @@ contract SimpleStorage {
   // KYT 검증
   const handleVerifyKyt = async () => {
     hapticFeedback('medium');
-
     if (!verificationData.patternCode) {
       showAlert('패턴 코드를 입력해주세요.');
       return;
@@ -428,7 +410,6 @@ contract SimpleStorage {
   // 퀴즈 검증
   const handleVerifyQuiz = async () => {
     hapticFeedback('medium');
-
     if (verificationData.q1 === undefined) {
       showAlert('모든 문제에 답변해주세요.');
       return;
