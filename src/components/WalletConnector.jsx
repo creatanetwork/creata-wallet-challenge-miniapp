@@ -1,10 +1,14 @@
 import { useState, useEffect } from 'react';
 import { checkWalletInstalled, connectCreataWallet, getAddressFromUrl, signMessage, getSignatureFromUrl } from '../services/wallet';
 import { hapticFeedback, showAlert } from '../services/telegram';
-import { collection, doc, getDoc, setDoc } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
+import { db, functions } from '../services/firebase';
+import { storage } from '../utils/helpers';
+import { useNavigate } from 'react-router-dom';
 
 const WalletConnector = ({ telegramUser, onConnect }) => {
+  const navigate = useNavigate();
   const [isWalletInstalled, setIsWalletInstalled] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [walletAddress, setWalletAddress] = useState('');
@@ -14,18 +18,36 @@ const WalletConnector = ({ telegramUser, onConnect }) => {
     const checkUrlParams = async () => {
       const address = getAddressFromUrl();
       const signature = getSignatureFromUrl();
-
+      
       if (address) {
         setWalletAddress(address);
-
+        
         // 서명이 있으면 검증
         if (signature && telegramUser) {
           try {
-            // 서명 검증 (백엔드에서 처리하는 것이 안전)
-            // 여기서는 간단히 DB에 저장하는 방식으로 처리
+            setIsConnecting(true);
+            
+            // 서명 메시지 재구성 (클라이언트에서 사용했던 것과 동일하게)
+            const message = `Connect Creata Wallet Challenge to Telegram ID: ${telegramUser.id}\nTimestamp: ${Date.now()}`;
+            
+            // 백엔드에서 서명 검증
+            const verifySignatureFunc = httpsCallable(functions, 'verifyWalletSignature');
+            const result = await verifySignatureFunc({
+              address,
+              message,
+              signature
+            });
+            
+            if (!result.data.isValid) {
+              showAlert('서명 검증에 실패했습니다. 다시 시도해주세요.');
+              setIsConnecting(false);
+              return;
+            }
+            
+            // 사용자 정보 저장
             const userId = `${telegramUser.id}_${address.toLowerCase()}`;
             const userRef = doc(db, 'users', userId);
-
+            
             // 사용자 데이터 저장
             await setDoc(userRef, {
               telegramId: telegramUser.id,
@@ -40,14 +62,17 @@ const WalletConnector = ({ telegramUser, onConnect }) => {
             }, { merge: true });
 
             setIsConnecting(false);
-
+            
             // 부모 컴포넌트에 연결 성공 알림
             onConnect({
               telegramId: telegramUser.id,
               walletAddress: address,
               signature
             });
-
+            
+            // 방문 기록 저장
+            storage.set('hasVisitedBefore', true);
+            
             hapticFeedback('success');
           } catch (error) {
             console.error('지갑 연결 완료 처리 오류:', error);
@@ -60,7 +85,7 @@ const WalletConnector = ({ telegramUser, onConnect }) => {
     };
 
     checkUrlParams();
-  }, [telegramUser, onConnect]);
+  }, [telegramUser, onConnect, navigate]);
 
   // 지갑 설치 확인
   useEffect(() => {
@@ -85,7 +110,6 @@ const WalletConnector = ({ telegramUser, onConnect }) => {
 
       // 지갑이 설치되어 있는지 다시 확인
       const installed = await checkWalletInstalled();
-
       if (!installed) {
         // 지갑이 설치되어 있지 않으면 설치 안내
         setIsConnecting(false);
@@ -99,7 +123,6 @@ const WalletConnector = ({ telegramUser, onConnect }) => {
 
       // 모바일의 경우 페이지가 리디렉션되므로 여기는 실행되지 않음
       // 브라우저 확장 프로그램의 경우 계속 실행
-
     } catch (error) {
       console.error('지갑 연결 오류:', error);
       setIsConnecting(false);
@@ -111,14 +134,14 @@ const WalletConnector = ({ telegramUser, onConnect }) => {
   // 앱스토어로 이동
   const handleInstallWallet = () => {
     hapticFeedback('medium');
-
+    
     // iOS와 안드로이드 구분
     const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-
+    
     if (/android/i.test(userAgent)) {
       window.location.href = 'https://play.google.com/store/apps/details?id=com.creatachain.wallet';
     } else if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
-      window.location.href = 'https://apps.apple.com/app/creata-wallet/id1234567890';
+      window.location.href = 'https://apps.apple.com/app/id1592066909'; // 실제 앱 ID로 수정
     } else {
       window.location.href = 'https://wallet.creatachain.com/download';
     }
@@ -144,7 +167,6 @@ const WalletConnector = ({ telegramUser, onConnect }) => {
               : '지갑을 연결하여 블록체인 섬 탐험을 시작하세요!'
             }
           </p>
-
           {!walletAddress && (
             <button
               className="btn-primary w-full max-w-xs"
