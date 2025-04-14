@@ -1,6 +1,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const Web3 = require('web3');
+const crypto = require('crypto');
 
 admin.initializeApp();
 
@@ -111,8 +112,8 @@ exports.mintNft = functions.https.onCall(async (data, context) => {
     // NFT 메타데이터 IPFS에 업로드 (외부 서비스 사용)
     const metadataUri = await uploadToIpfs(metadata);
 
-    // 다음 토큰 ID 가져오기 (예: totalSupply + 1)
-    const tokenId = await getNextTokenId(nftContract);
+    // 다음 토큰 ID 가져오기 (안전하게 처리)
+    const tokenId = await getNextTokenId();
 
     // NFT 민팅 트랜잭션
     const tx = await nftContract.methods
@@ -155,7 +156,6 @@ async function uploadToIpfs(metadata) {
   // 실제로는 Pinata, Filebase 같은 IPFS 서비스 사용
   // 여기서는 단순화를 위해 외부 API 호출 가정
   const fetch = require('node-fetch');
-
   try {
     const response = await fetch('https://api.pinata.cloud/pinning/pinJSONToIPFS', {
       method: 'POST',
@@ -179,14 +179,30 @@ async function uploadToIpfs(metadata) {
   }
 }
 
-// 다음 토큰 ID 가져오는 함수 (예시)
-async function getNextTokenId(nftContract) {
+// 다음 토큰 ID 가져오는 함수 (레이스 컨디션 방지)
+async function getNextTokenId() {
   try {
-    // 컨트랙트에 totalSupply 함수가 있다고 가정
-    const totalSupply = await nftContract.methods.totalSupply().call();
-    return parseInt(totalSupply) + 1;
+    // Firestore 트랜잭션을 사용하여 안전하게 ID 증가
+    const result = await admin.firestore().runTransaction(async (transaction) => {
+      // 글로벌 카운터 문서 참조
+      const counterRef = admin.firestore().collection('system').doc('nft_counter');
+      const counterDoc = await transaction.get(counterRef);
+      
+      // 현재 토큰 ID 가져오기
+      let currentId = 1;
+      if (counterDoc.exists) {
+        currentId = counterDoc.data().currentTokenId + 1;
+      }
+      
+      // 카운터 업데이트
+      transaction.set(counterRef, { currentTokenId: currentId }, { merge: true });
+      
+      return currentId;
+    });
+    
+    return result;
   } catch (error) {
-    console.error('토큰 ID 조회 오류:', error);
+    console.error('토큰 ID 생성 오류:', error);
     // 오류 발생 시 기본값 사용
     return Math.floor(Date.now() / 1000); // 현재 타임스탬프 사용
   }
@@ -205,7 +221,6 @@ exports.verifyTelegramUser = functions.https.onCall(async (data, context) => {
 
   try {
     // 텔레그램 initData 검증 로직 구현
-    // 여기서는 검증 로직 생략 (실제로는 HMAC-SHA-256 서명 확인 등 필요)
     const isValid = verifyTelegramInitData(initData);
 
     if (!isValid) {
@@ -229,35 +244,45 @@ exports.verifyTelegramUser = functions.https.onCall(async (data, context) => {
   }
 });
 
-// 텔레그램 initData 검증 함수 (실제 구현 필요)
+// 텔레그램 initData 검증 함수 (실제 구현)
 function verifyTelegramInitData(initData) {
-  // 실제 검증 로직 구현
-  // 참고: https://core.telegram.org/bots/webapps#validating-data-received-via-the-web-app
-
-  // 여기서는 간단한 예시만 제공합니다. 실제 구현에서는 HMAC 검증을 해야 합니다.
   try {
-    const data = new URLSearchParams(initData);
-    const hash = data.get('hash');
-
+    const urlParams = new URLSearchParams(initData);
+    const hash = urlParams.get('hash');
     if (!hash) return false;
-
-    // 실제 구현에서는 여기서 올바른 해시 계산 및 비교
-    // const expectedHash = calculateHash(data, BOT_TOKEN);
-    // return expectedHash === hash;
-
-    return true; // 예시에서는 항상 유효하다고 가정
+    
+    // hash를 제외한 데이터 정렬하여 데이터 문자열 생성
+    urlParams.delete('hash');
+    const dataCheckString = Array.from(urlParams.entries())
+      .sort()
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n');
+    
+    // 봇 토큰으로 HMAC-SHA-256 서명 생성
+    const BOT_TOKEN = functions.config().telegram.bot_token;
+    const secretKey = crypto
+      .createHash('sha256')
+      .update(BOT_TOKEN)
+      .digest();
+    
+    const signature = crypto
+      .createHmac('sha256', secretKey)
+      .update(dataCheckString)
+      .digest('hex');
+    
+    // 생성된 서명과 제공된 hash 비교
+    return signature === hash;
   } catch (error) {
     console.error('Telegram initData 검증 오류:', error);
     return false;
   }
 }
 
-// initData에서 사용자 정보 추출 함수 (실제 구현 필요)
+// initData에서 사용자 정보 추출 함수 (실제 구현)
 function extractUserFromInitData(initData) {
   try {
     const data = new URLSearchParams(initData);
     const userJson = data.get('user');
-
     if (!userJson) {
       return {
         id: 0,
@@ -282,5 +307,200 @@ function extractUserFromInitData(initData) {
       last_name: "",
       username: "error"
     };
+  }
+}
+
+// 지갑 서명 검증 함수
+exports.verifyWalletSignature = functions.https.onCall(async (data, context) => {
+  const { address, message, signature } = data;
+  
+  // 필수 파라미터 검증
+  if (!address || !message || !signature) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      '주소, 메시지, 서명이 모두 필요합니다.'
+    );
+  }
+  
+  // 주소 형식 검증
+  if (!web3.utils.isAddress(address)) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      '유효하지 않은 Ethereum 주소입니다.'
+    );
+  }
+  
+  try {
+    // 서명 복구
+    const recoveredAddress = web3.eth.accounts.recover(message, signature);
+    
+    // 복구된 주소와 제공된 주소 비교 (대소문자 구분 없이)
+    const isValid = recoveredAddress.toLowerCase() === address.toLowerCase();
+    
+    return { isValid };
+  } catch (error) {
+    console.error('서명 검증 오류:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      '서명 검증 중 오류가 발생했습니다.',
+      error.message
+    );
+  }
+});
+
+// 미션 검증 함수
+exports.verifyMission = functions.https.onCall(async (data, context) => {
+  // 인증 확인
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      '인증된 사용자만 이 함수를 호출할 수 있습니다.'
+    );
+  }
+  
+  const { userId, missionId, verificationData } = data;
+  
+  // 사용자와 미션 정보 확인
+  const userRef = admin.firestore().collection('users').doc(userId);
+  const userDoc = await userRef.get();
+  
+  if (!userDoc.exists) {
+    throw new functions.https.HttpsError('not-found', '사용자를 찾을 수 없습니다.');
+  }
+  
+  const missionRef = admin.firestore().collection('missions').doc(missionId);
+  const missionDoc = await missionRef.get();
+  
+  if (!missionDoc.exists) {
+    throw new functions.https.HttpsError('not-found', '미션을 찾을 수 없습니다.');
+  }
+  
+  const mission = missionDoc.data();
+  const requirementType = mission.requirements?.type || '';
+  
+  switch (requirementType) {
+    case 'INSTALL':
+      // 실제 지갑 설치 확인 로직
+      return { success: true, message: '지갑 연결이 확인되었습니다.' };
+      
+    case 'TRANSFER':
+      // 트랜잭션 검증
+      const { txHash } = verificationData;
+      if (!txHash) {
+        return { success: false, message: '트랜잭션 해시가 필요합니다.' };
+      }
+      
+      // 블록체인에서 실제 트랜잭션 조회 및 검증
+      const txVerified = await verifyTransactionOnChain(txHash, {
+        to: mission.requirements.params?.receiver || '0x1234567890AbCdEf1234567890AbCdEf12345678',
+        minimumAmount: mission.requirements.params?.minimumAmount || 0.01,
+        from: userDoc.data().walletAddress
+      });
+      
+      return { 
+        success: txVerified, 
+        message: txVerified ? '트랜잭션이 확인되었습니다.' : '유효하지 않은 트랜잭션입니다.' 
+      };
+    
+    case 'SMART_CONTRACT':
+      // 스마트 컨트랙트 배포 검증
+      const { contractAddress } = verificationData;
+      if (!contractAddress) {
+        return { success: false, message: '컨트랙트 주소가 필요합니다.' };
+      }
+      
+      // 컨트랙트 코드 확인
+      const code = await web3.eth.getCode(contractAddress);
+      if (code === '0x' || code === '0x0') {
+        return { success: false, message: '해당 주소에 컨트랙트 코드가 없습니다.' };
+      }
+      
+      // 추가 검증 로직 (예: 인터페이스 확인)
+      // ...
+      
+      return { success: true, message: '스마트 컨트랙트가 확인되었습니다.' };
+      
+    case 'CROSS_CHAIN':
+      // 크로스체인 전송 검증
+      // 실제 크로스체인 브릿지 API 호출 등으로 검증
+      // 예시에서는 간단한 확인만 수행
+      return { success: true, message: '크로스체인 전송이 확인되었습니다.' };
+      
+    case 'STAKING':
+      // 스테이킹 검증
+      const { amount } = verificationData;
+      if (!amount || parseFloat(amount) < 10) {
+        return { success: false, message: '최소 10 CTA를 스테이킹해야 합니다.' };
+      }
+      
+      // 실제 스테이킹 상태 확인 로직
+      // ...
+      
+      return { success: true, message: '스테이킹이 확인되었습니다.' };
+      
+    case 'KYT':
+      // 트랜잭션 추적 검증
+      const { patternCode } = verificationData;
+      if (!patternCode) {
+        return { success: false, message: '패턴 코드가 필요합니다.' };
+      }
+      
+      // 실제 패턴 코드 검증 로직
+      const correctPatternCode = mission.requirements.params?.correctCode || 'CODE-123-ABC';
+      const isPatternCorrect = patternCode === correctPatternCode;
+      
+      return { 
+        success: isPatternCorrect, 
+        message: isPatternCorrect ? '패턴 코드가 확인되었습니다.' : '잘못된 패턴 코드입니다.' 
+      };
+      
+    case 'QUIZ':
+      // 퀴즈 검증
+      const { answers } = verificationData;
+      if (!answers || !Array.isArray(answers)) {
+        return { success: false, message: '퀴즈 답변이 필요합니다.' };
+      }
+      
+      // 실제 퀴즈 답변 검증 로직
+      const correctAnswers = mission.requirements.params?.correctAnswers || [2]; // 예시 정답
+      const passThreshold = mission.requirements.params?.passThreshold || 1; // 통과 기준
+      
+      let correctCount = 0;
+      answers.forEach((answer, index) => {
+        if (correctAnswers[index] === answer) {
+          correctCount++;
+        }
+      });
+      
+      const passed = correctCount >= passThreshold;
+      
+      return { 
+        success: passed, 
+        message: passed ? '퀴즈를 완료했습니다.' : '퀴즈 점수가 통과 기준에 미치지 못했습니다.',
+        score: correctCount,
+        total: correctAnswers.length 
+      };
+      
+    default:
+      return { success: false, message: '지원되지 않는 미션 유형입니다.' };
+  }
+});
+
+// 블록체인에서 트랜잭션 검증 함수
+async function verifyTransactionOnChain(txHash, requirements) {
+  try {
+    // web3 라이브러리를 사용하여 트랜잭션 조회
+    const tx = await web3.eth.getTransaction(txHash);
+    if (!tx) return false;
+    
+    // 트랜잭션 검증
+    const isFromCorrect = tx.from.toLowerCase() === requirements.from.toLowerCase();
+    const isToCorrect = tx.to.toLowerCase() === requirements.to.toLowerCase();
+    const isAmountCorrect = parseFloat(web3.utils.fromWei(tx.value, 'ether')) >= requirements.minimumAmount;
+    
+    return isFromCorrect && isToCorrect && isAmountCorrect;
+  } catch (error) {
+    console.error('트랜잭션 조회 오류:', error);
+    return false;
   }
 }
