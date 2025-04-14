@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
-import { getTelegramUser, verifyTelegramUser } from '../services/telegram';
+import { getTelegramUser } from '../services/telegram';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../services/firebase';
 
 const TelegramAuth = ({ onAuth }) => {
   const [user, setUser] = useState(null);
@@ -12,23 +14,28 @@ const TelegramAuth = ({ onAuth }) => {
       try {
         // 텔레그램 WebApp에서 사용자 정보 가져오기
         const telegramUser = getTelegramUser();
-
+        
         if (telegramUser) {
           setUser(telegramUser);
-
-          // 서버에서 사용자 인증 검증 (선택적)
+          
+          // 서버에서 사용자 인증 검증 (Firebase Function 호출)
           setIsVerifying(true);
-
           try {
-            const { verified, user: verifiedUser } = await verifyTelegramUser();
-
-            if (verified) {
+            const verifyTelegramUserFunc = httpsCallable(functions, 'verifyTelegramUser');
+            const webApp = window.Telegram?.WebApp;
+            
+            // 텔레그램 initData 전달
+            const result = await verifyTelegramUserFunc({
+              initData: webApp ? webApp.initData : ''
+            });
+            
+            if (result.data.verified) {
               // 검증된 사용자 정보로 업데이트
-              setUser(prevUser => ({ ...prevUser, ...verifiedUser }));
-
+              setUser(prev => ({ ...prev, ...result.data.user }));
+              
               // 부모 컴포넌트에 인증 완료 알림
               if (onAuth) {
-                onAuth(verifiedUser);
+                onAuth(result.data.user);
               }
             } else {
               setError('텔레그램 사용자 인증에 실패했습니다.');
@@ -86,7 +93,6 @@ const TelegramAuth = ({ onAuth }) => {
             {user.firstName ? user.firstName[0] : '?'}
           </span>
         </div>
-
         <div className="flex-1">
           <p className="font-semibold text-white">
             {user.firstName} {user.lastName || ''}
@@ -95,7 +101,6 @@ const TelegramAuth = ({ onAuth }) => {
             <p className="text-sm text-gray-400">@{user.username}</p>
           )}
         </div>
-
         <div className="bg-success/20 text-success text-xs font-semibold px-2 py-1 rounded-full">
           인증됨
         </div>
