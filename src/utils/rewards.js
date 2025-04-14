@@ -1,9 +1,8 @@
-import { collection, doc, getDoc, updateDoc, arrayUnion, increment, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, updateDoc, arrayUnion, increment, setDoc, query, orderBy, limit, where, getDocs } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../services/firebase';
 
 // CTA 토큰 보상 지급 (Cloud Function 호출)
-// CTA는 크레아타체인의 네이티브 토큰입니다
 export const sendCtaReward = async (userId, amount, reason) => {
   try {
     // 사용자 정보 가져오기
@@ -17,9 +16,8 @@ export const sendCtaReward = async (userId, amount, reason) => {
     const userData = userDoc.data();
     const walletAddress = userData.walletAddress;
 
-    // Firebase Function 호출하여 실제 CTA 전송 (네이티브 토큰)
+    // Firebase Function 호출하여 실제 CTA 전송
     const sendCta = httpsCallable(functions, 'sendCtaReward');
-
     const result = await sendCta({
       walletAddress,
       amount,
@@ -79,7 +77,6 @@ export const sendNftReward = async (userId, nftId, reason) => {
 
     // Firebase Function 호출하여 실제 NFT 민팅
     const mintNft = httpsCallable(functions, 'mintNft');
-
     const result = await mintNft({
       walletAddress,
       nftId,
@@ -124,8 +121,15 @@ export const sendNftReward = async (userId, nftId, reason) => {
 // 점수(포인트) 부여
 export const awardPoints = async (userId, points, reason) => {
   try {
-    // 사용자 문서 참조
+    // 사용자 정보 가져오기
     const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+
+    if (!userDoc.exists()) {
+      throw new Error('사용자를 찾을 수 없습니다.');
+    }
+
+    const userData = userDoc.data();
 
     // 점수 업데이트
     await updateDoc(userRef, {
@@ -139,38 +143,49 @@ export const awardPoints = async (userId, points, reason) => {
     });
 
     // 리더보드 업데이트
-    const weekStartDate = getWeekStartDate(); // 주의 시작일 계산
-    const leaderboardId = `weekly-${weekStartDate.toISOString().split('T')[0]}`;
-    const leaderboardRef = doc(db, 'leaderboard', leaderboardId);
-
-    // 리더보드가 있는지 확인
-    const leaderboardDoc = await getDoc(leaderboardRef);
-
-    if (leaderboardDoc.exists()) {
-      // 기존 리더보드 업데이트
-      await updateDoc(leaderboardRef, {
-        entries: arrayUnion({
-          userId,
-          points,
-          timestamp: new Date()
-        })
-      });
-    } else {
-      // 새 리더보드 생성
-      await setDoc(leaderboardRef, {
-        weekStart: weekStartDate,
-        entries: [{
-          userId,
-          points,
-          timestamp: new Date()
-        }]
-      });
-    }
+    await updateUserRank(userId, (userData.points || 0) + points);
 
     return { success: true, points };
   } catch (error) {
     console.error('점수 부여 오류:', error);
     throw new Error('점수 부여에 실패했습니다.');
+  }
+};
+
+// 리더보드 업데이트 최적화 (백엔드 작업)
+export const updateUserRank = async (userId, points) => {
+  try {
+    // 주간 시작일 계산
+    const weekStartDate = getWeekStartDate();
+    const leaderboardId = `weekly-${weekStartDate.toISOString().split('T')[0]}`;
+    
+    // 사용자 정보 가져오기
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      throw new Error('사용자를 찾을 수 없습니다.');
+    }
+    
+    const userData = userDoc.data();
+    
+    // 리더보드 랭킹 문서 참조
+    const rankingRef = doc(db, 'leaderboard', leaderboardId, 'rankings', userId);
+    
+    // 랭킹 정보 업데이트 (또는 생성)
+    await setDoc(rankingRef, {
+      userId,
+      telegramId: userData.telegramId,
+      walletAddress: userData.walletAddress,
+      displayName: userData.displayName || '익명의 탐험가',
+      points,
+      updatedAt: new Date()
+    }, { merge: true });
+    
+    return true;
+  } catch (error) {
+    console.error('랭킹 업데이트 오류:', error);
+    throw new Error('랭킹 업데이트에 실패했습니다.');
   }
 };
 
@@ -228,7 +243,6 @@ export const processMissionReward = async (userId, missionId) => {
 
     // 보상 유형에 따른 처리
     let rewardResult;
-
     switch (reward.type) {
       case 'CTA':
         rewardResult = await sendCtaReward(
@@ -237,7 +251,6 @@ export const processMissionReward = async (userId, missionId) => {
           `미션 완료: ${mission.title}`
         );
         break;
-
       case 'NFT':
         rewardResult = await sendNftReward(
           userId,
@@ -245,7 +258,6 @@ export const processMissionReward = async (userId, missionId) => {
           `미션 완료: ${mission.title}`
         );
         break;
-
       case 'POINTS':
         rewardResult = await awardPoints(
           userId,
@@ -253,7 +265,6 @@ export const processMissionReward = async (userId, missionId) => {
           `미션 완료: ${mission.title}`
         );
         break;
-
       default:
         throw new Error('지원되지 않는 보상 유형입니다.');
     }
@@ -288,61 +299,30 @@ export const getWeekStartDate = () => {
   return weekStart;
 };
 
-// 리더보드 조회
+// 리더보드 조회 최적화
 export const getLeaderboard = async (limit = 10) => {
   try {
     const weekStartDate = getWeekStartDate();
     const leaderboardId = `weekly-${weekStartDate.toISOString().split('T')[0]}`;
-    const leaderboardRef = doc(db, 'leaderboard', leaderboardId);
-
-    const leaderboardDoc = await getDoc(leaderboardRef);
-
-    if (!leaderboardDoc.exists()) {
-      return {
-        weekStart: weekStartDate,
-        entries: []
-      };
-    }
-
-    const leaderboardData = leaderboardDoc.data();
-
-    // 사용자별 점수 합산 및 정렬
-    const userScores = {};
-
-    leaderboardData.entries.forEach(entry => {
-      if (!userScores[entry.userId]) {
-        userScores[entry.userId] = 0;
-      }
-      userScores[entry.userId] += entry.points;
+    
+    // 포인트 기준 내림차순 정렬 쿼리
+    const rankingsRef = collection(db, 'leaderboard', leaderboardId, 'rankings');
+    const rankingsQuery = query(
+      rankingsRef,
+      orderBy('points', 'desc'),
+      limit(limit)
+    );
+    
+    const rankingsSnapshot = await getDocs(rankingsQuery);
+    const entries = [];
+    
+    rankingsSnapshot.forEach((doc) => {
+      entries.push(doc.data());
     });
-
-    // 사용자 정보 가져오기
-    const leaderboardEntries = [];
-
-    for (const [userId, totalPoints] of Object.entries(userScores)) {
-      const userRef = doc(db, 'users', userId);
-      const userDoc = await getDoc(userRef);
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-
-        leaderboardEntries.push({
-          userId,
-          walletAddress: userData.walletAddress,
-          telegramId: userData.telegramId,
-          displayName: userData.displayName || '익명의 탐험가',
-          points: totalPoints
-        });
-      }
-    }
-
-    // 점수 기준 내림차순 정렬
-    leaderboardEntries.sort((a, b) => b.points - a.points);
-
-    // 상위 N개만 반환
+    
     return {
       weekStart: weekStartDate,
-      entries: leaderboardEntries.slice(0, limit)
+      entries
     };
   } catch (error) {
     console.error('리더보드 조회 오류:', error);
@@ -350,25 +330,41 @@ export const getLeaderboard = async (limit = 10) => {
   }
 };
 
-// 사용자 리더보드 순위 조회
+// 사용자 순위 조회 최적화
 export const getUserLeaderboardRank = async (userId) => {
   try {
-    const leaderboard = await getLeaderboard(1000); // 충분히 큰 숫자로 제한
-
-    // 사용자 인덱스 찾기
-    const userIndex = leaderboard.entries.findIndex(entry => entry.userId === userId);
-
-    if (userIndex === -1) {
-      return {
-        rank: null,
-        totalUsers: leaderboard.entries.length
-      };
+    const weekStartDate = getWeekStartDate();
+    const leaderboardId = `weekly-${weekStartDate.toISOString().split('T')[0]}`;
+    
+    // 사용자 포인트 조회
+    const rankingRef = doc(db, 'leaderboard', leaderboardId, 'rankings', userId);
+    const rankingDoc = await getDoc(rankingRef);
+    
+    if (!rankingDoc.exists()) {
+      return { rank: null, totalUsers: 0, points: 0 };
     }
-
+    
+    const userPoints = rankingDoc.data().points;
+    
+    // 사용자보다 높은 포인트를 가진 사용자 수 계산
+    const rankingsRef = collection(db, 'leaderboard', leaderboardId, 'rankings');
+    const higherRanksQuery = query(
+      rankingsRef,
+      where('points', '>', userPoints)
+    );
+    
+    const higherRanksSnapshot = await getDocs(higherRanksQuery);
+    const rank = higherRanksSnapshot.size + 1; // 1부터 시작하는 순위
+    
+    // 총 사용자 수 계산 (필요한 경우)
+    const countQuery = query(rankingsRef);
+    const countSnapshot = await getDocs(countQuery);
+    const totalUsers = countSnapshot.size;
+    
     return {
-      rank: userIndex + 1, // 1부터 시작하는 순위
-      totalUsers: leaderboard.entries.length,
-      points: leaderboard.entries[userIndex].points
+      rank,
+      totalUsers,
+      points: userPoints
     };
   } catch (error) {
     console.error('사용자 리더보드 순위 조회 오류:', error);
