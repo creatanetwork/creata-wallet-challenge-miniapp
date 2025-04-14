@@ -171,3 +171,70 @@ export const getTxHashFromUrl = () => {
   const params = new URLSearchParams(window.location.search);
   return params.get('txHash');
 };
+
+// 스마트 컨트랙트 함수 호출 (읽기 전용)
+export const callContractRead = async (contractAddress, abi, functionName, params = []) => {
+  try {
+    const web3 = new Web3(isMobile() ? 'https://cvm.node.creatachain.com' : window.creata);
+    const contract = new web3.eth.Contract(abi, contractAddress);
+    const result = await contract.methods[functionName](...params).call();
+    return result;
+  } catch (error) {
+    console.error('컨트랙트 읽기 오류:', error);
+    throw new Error('컨트랙트 읽기에 실패했습니다.');
+  }
+};
+
+// 스마트 컨트랙트 함수 호출 (쓰기 - 트랜잭션 발생)
+export const callContractWrite = async (contractAddress, abi, functionName, params = []) => {
+  try {
+    if (isMobile()) {
+      // 모바일 지갑에서는 ABI와 함수 이름, 파라미터를 전달하는 방식으로 구현
+      const web3 = new Web3();
+      const contract = new web3.eth.Contract(abi, contractAddress);
+      const data = contract.methods[functionName](...params).encodeABI();
+      const callbackUrl = encodeURIComponent(window.location.href);
+      window.location.href = `creata://wallet/contract?to=${contractAddress}&data=${data}&callback=${callbackUrl}`;
+      return null; // 결과는 리디렉션 후 URL 파라미터로 받음
+    } else if (window.creata) {
+      // 브라우저 확장 프로그램에서 컨트랙트 함수 호출
+      const web3 = new Web3(window.creata);
+      const accounts = await window.creata.request({ method: 'eth_requestAccounts' });
+      const contract = new web3.eth.Contract(abi, contractAddress);
+      const txHash = await contract.methods[functionName](...params).send({
+        from: accounts[0]
+      });
+      return txHash;
+    }
+    return null;
+  } catch (error) {
+    console.error('컨트랙트 쓰기 오류:', error);
+    throw new Error('컨트랙트 쓰기에 실패했습니다.');
+  }
+};
+
+// 딥링크 테스트 함수
+export const testDeepLink = async (type) => {
+  try {
+    const testLinks = {
+      check: 'creata://wallet/check',
+      connect: `creata://wallet/connect?callback=${encodeURIComponent(window.location.href)}`,
+      transfer: `creata://wallet/transaction?type=native&to=0x1234567890AbCdEf1234567890AbCdEf12345678&amount=0.01&callback=${encodeURIComponent(window.location.href)}`,
+      sign: `creata://wallet/sign?message=${encodeURIComponent('Test message')}&callback=${encodeURIComponent(window.location.href)}`
+    };
+    
+    if (!testLinks[type]) {
+      console.error('알 수 없는 딥링크 테스트 유형:', type);
+      return false;
+    }
+    
+    // 딥링크 열기
+    window.location.href = testLinks[type];
+    
+    // 테스트 완료 플래그 설정 (실제로는 콜백에서 확인)
+    return true;
+  } catch (error) {
+    console.error('딥링크 테스트 오류:', error);
+    return false;
+  }
+};
